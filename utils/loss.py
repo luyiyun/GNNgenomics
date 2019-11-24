@@ -17,7 +17,8 @@ class CoxLoss(nn.Module):
             raise NotImplementedError("%s is not implemented." % reduction)
 
     def forward(self, pred, target):
-        pred, time, event = pred.squeeze(-1), target[:, 0], target[:, 1]
+        # pred is surv time, but here we need risk
+        pred, time, event = -pred.squeeze(-1), target[:, 0], target[:, 1]
         time = time.float()
         time_index = time.argsort(descending=True)
         try:
@@ -49,7 +50,11 @@ class SVMLoss(nn.Module):
 
     def _regression(self, pred, time, event):
         diff = pred - time
-        diff[event == 0] = diff[event == 0].clamp(0.)
+        #  diff[event == 0] = diff[event == 0].clamp(0.)
+        diff_1 = (diff * (event == 0).float()).clamp(0.)
+        diff_2 = diff * (event != 0).float()
+        diff = diff_1 + diff_2
+
         return self.reduction_fn(diff ** 2)
 
     def _ranking(self, pred, time, event):

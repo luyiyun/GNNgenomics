@@ -41,13 +41,13 @@ class C_index:
         preds = torch.cat(self.preds, dim=0).detach().cpu().numpy()
         targets = torch.cat(self.targets, dim=0).detach().cpu().numpy()
         return c_index(targets[:, 1].astype("bool"), targets[:, 0],
-                       preds.squeeze())[0]
-
+                       -preds.squeeze())[0]  # "-" indicated pred is surv prop
+                                             #   not risk.
     def __call__(self, preds, targets):
         preds = preds.detach().cpu().numpy()
         targets = targets.detach().cpu().numpy()
         return c_index(targets[:, 1].astype("bool"), targets[:, 0],
-                       preds.squeeze())[0]
+                       -preds.squeeze())[0]
 
 
 scores_dict = {

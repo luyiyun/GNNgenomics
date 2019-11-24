@@ -78,8 +78,8 @@ class Config:
         parser.add_argument("-c", "--criterion", default="cox_loss",
                             help="loss function, default cox_loss")
         # early stop args
-        parser.add_argument("--early_stop", default=True, type=bool,
-                            help="use early stop? default True")
+        parser.add_argument("--early_stop", action="store_true",
+                            help="use early stop?")
         parser.add_argument("--early_stop_score", default="c_index",
                             help="early stop using this, default c_index")
         parser.add_argument("--early_stop_tolerance", default=10, type=int,
