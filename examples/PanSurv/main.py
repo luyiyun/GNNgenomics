@@ -2,22 +2,27 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
+from os.path import dirname
 
 import torch
 import torch_geometric.data as pyg_data
 import torch.optim as optim
 
-from utils.datasets import GenomicsData, processes_dict
+ROOT_DIR = dirname(dirname(dirname(os.path.abspath(__file__))))
+sys.path.append(ROOT_DIR)
+from utils.datasets import GenomicsData
 from utils.loss import losses_dict
 from utils.scores import scores_dict
 from architecture import DeepDynGNN
-from config import Config
 from train import train_val_test, save_generally, eval_one_epoch
+from opts import PanSurvConfig
+from processes import processes_dict
 
 
 def main():
     # load config
-    config = Config()
+    config = PanSurvConfig()
     opts = config.initialize()
     config.save(os.path.join(opts.to, "config.json"))
     print(config)

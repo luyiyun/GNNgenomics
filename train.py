@@ -6,10 +6,8 @@ from copy import deepcopy
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
-from visdom import Visdom
 
 from utils.scores import Loss
 from utils.visual import VisObj
