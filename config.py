@@ -46,6 +46,9 @@ class Config:
                                  help="dropout rate, default 0.2")
         self.parser.add_argument("--out_dim", default=1, type=int,
                                  help="output dims, default 1")
+        self.parser.add_argument("--prediction_hidden_units", nargs="+",
+                                 default=[1024, 512, 256], type=int,
+                                 help="the hidden units in prediction")
 
         # training args
         self.parser.add_argument("-e", "--epoch", type=int, default=100,

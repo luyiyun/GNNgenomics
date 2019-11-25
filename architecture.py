@@ -41,13 +41,13 @@ class DeepDynGNN(nn.Module):
             )
         # prediction
         fusion_dims = block_hiddens[0] * (n_blocks + 1)
-        self.prediction = nn.Sequential(
-            MLP([fusion_dims, 1024], act, norm, bias), nn.Dropout(opts.dropout),
-            MLP([1024, 512], act, norm, bias), nn.Dropout(opts.dropout),
-            MLP([512, 256], act, norm, bias), nn.Dropout(opts.dropout),
-            MLP([256, opts.out_dim], None, None, bias)
-        )
-
+        units = [fusion_dims] + opts.prediction_hidden_units + [opts.out_dim]
+        MLPs = []
+        for i in range(len(units) - 1):
+            MLPs.append(MLP([units[i], units[i+1]], act, norm, bias))
+            if i < (len(units) - 2):
+                MLPs.append(nn.Dropout(opts.dropout))
+        self.prediction = nn.Sequential(*MLPs)
 
     def forward(self, dat):
         x, edge_index, batch, edge_weight = dat.x, dat.edge_index, \
@@ -57,7 +57,7 @@ class DeepDynGNN(nn.Module):
             feats.append(block(feats[-1], edge_index, batch, edge_weight))
         feats = torch.cat(feats, 1)
         feats, _ = to_dense_batch(feats, batch)  # B x N x F
-        feats, _ = torch.max(feats, 1)  # B X F
+        feats = torch.mean(feats, 1)  # B X F
         out = self.prediction(feats)  # B x 1
         return out
 
