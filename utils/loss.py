@@ -8,6 +8,7 @@ import torch.nn as nn
 class CoxLoss(nn.Module):
 
     def __init__(self, reduction="mean"):
+        raise NotImplementedError
         super(CoxLoss, self).__init__()
         if reduction == "mean":
             self.reduction_fn = torch.mean

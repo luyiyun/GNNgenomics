@@ -135,6 +135,9 @@ def train_val_test(model, criterion, optimizer, dataloaders, scores, opts):
                 history.update(early_stop_dict)
                 break
 
+    if opts.use_visdom:
+        vis.save_env()
+
     # test phase
     if "test" in dataloaders.keys():
         model.eval()

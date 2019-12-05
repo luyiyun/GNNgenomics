@@ -9,14 +9,18 @@ import argparse
 class Config:
 
     def __init__(self):
-        self.parser = argparse.ArgumentParser()
+        self.parser = argparse.ArgumentParser(
+            description=("如果上次已经建立了root folder，则提供的source files"
+                         "可以只是文件名，而不是完成路径")
+        )
 
         # base
         self.parser.add_argument("--task", default="train",
                                  help="train(default) or test or pred")
         self.parser.add_argument("--device", default="cuda:0",
                                  help="cuda:0(default) or cpu")
-        self.parser.add_argument("-rs", "--random_seed", type=int, default=2019,
+        self.parser.add_argument("-rs", "--random_seed", type=int,
+                                 default=2019,
                                  help="random seed, default is 2019")
 
         # datasets args
@@ -25,9 +29,27 @@ class Config:
         self.parser.add_argument("-s", "--split", default=[0.8, 0.1, 0.2],
                                  type=int, nargs=3,
                                  help=("train val test prop, "
-                                       "default are 0.8, 0.1, 0.2"))
+                                       "default are 0.8, 0.1, 0.2,"
+                                       "if task is not train, just first "
+                                       "is used."))
         self.parser.add_argument("-bs", "--batch_size", default=8, type=int,
                                  help="batch size, default 8")
+        self.parser.add_argument(
+            "-sd", "--seq_data", default="HiSeqV2",
+            help="the genomics seq data path, default pan rnaseq"
+        )
+        self.parser.add_argument(
+            "-cd", "--cli_data", default="PANCAN_clinicalMatrix",
+            help="the cli data path, default pan cli"
+        )
+        self.parser.add_argument(
+            "-gd", "--graph_data", default="STRING.csv",
+            help="the graph data path, default string"
+        )
+        self.parser.add_argument(
+            "--processed_name", default="surv_tcgaPan_ppi_99",
+            help="processed name, default surv_tcgaPan_ppi_99"
+        )
 
         # network architecture
         self.parser.add_argument("-bh", "--block_hiddens", default=[10],
@@ -68,20 +90,24 @@ class Config:
                                  help="save to path, default default_save")
         self.parser.add_argument("--scores", default=["c_index"], nargs="+",
                                  help="evaluation scores, default c_index")
-        self.parser.add_argument("-c", "--criterion", default="cox_loss",
+        self.parser.add_argument("-c", "--criterion", default="svm_loss",
                                  help="loss function, default cox_loss")
+        self.parser.add_argument("--svm_loss_r", default=1.0, type=float,
+                                 help=("if svm_loss, r is the prop of "
+                                       "ranking loss, default 1.0"))
         # early stop args
         self.parser.add_argument("--early_stop", action="store_true",
                                  help="use early stop?")
         self.parser.add_argument("--early_stop_score", default="c_index",
                                  help="early stop using this, default c_index")
-        self.parser.add_argument("--early_stop_tolerance", default=10,
-                                 type=int,
-                                 help="the tolerance of early stop, default 10 epoch")
+        self.parser.add_argument(
+            "--early_stop_tolerance", default=10, type=int,
+            help="the tolerance of early stop, default 10 epoch"
+        )
 
         # visual args
-        self.parser.add_argument("--use_visdom", action="store_true",
-                                 help="use visdom(just for train)?")
+        self.parser.add_argument("--use_visdom", default=True, type=bool,
+                                 help="use visdom(for train), default True")
         self.parser.add_argument("-vp", "--visdom_port", default=8097,
                                  type=int,
                                  help="the port of visdom, default 8097")
@@ -108,6 +134,14 @@ class Config:
         # source_files
         self.args.source_files = [
             self.args.cli_data, self.args.seq_data, self.args.graph_data]
+        # if don't have raw files, must give source files;
+        # if have raw files, source files is not necessary
+        bool_raw_exist = os.path.exists(
+            os.path.join(self.args.root_name, "raw"))
+        bool_source_data = all([f is not None for f in self.args.source_files])
+        if (not bool_raw_exist) and (not bool_source_data):
+            raise ValueError("one of source files or root_name/raw "
+                             "must be existed.")
 
         return self.args
 

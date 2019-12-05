@@ -4,7 +4,6 @@
 
 import pandas as pd
 import numpy as np
-import torch
 
 
 def surv_tcgaPan_ppi(source_files, std_filter=0.99):
@@ -49,12 +48,20 @@ def surv_tcgaPan_ppi(source_files, std_filter=0.99):
     ppi = np.stack(ppi_number, axis=1)
     # df --> ndarray
     tcgaPan_seq, tcgaPan_cli = tcgaPan_seq.values, tcgaPan_cli.values
+    # seq normalization
+    tcgaPan_seq = (tcgaPan_seq - tcgaPan_seq.mean(keepdims=True)) / \
+        tcgaPan_seq.std(keepdims=True)
 
     return tcgaPan_cli, tcgaPan_seq, ppi
 
 
+def primary_melanoma_tcga(source_files):
+    pass
+
+
 processes_dict = {
-    "surv_tcgaPan_ppi": surv_tcgaPan_ppi,
+    "surv_tcgaPan_ppi_99": lambda x: surv_tcgaPan_ppi(x, 0.99),
+    "melanoma_tcga": primary_melanoma_tcga,
 }
 
 

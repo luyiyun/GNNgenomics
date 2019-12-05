@@ -1,28 +1,35 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+如果需要添加一个新的数据集，则需要添加在processes中定义一个函数，并将其放入
+dict processes_dict中，key是processes_name，这个函数需要返回3个ndarray，依次是
+cli、seq、graph，其中：
+    cli是表示预测的标签，可以是一列，也可以是多列；
+    seq表示使用的基因，X，必须是2维矩阵；
+    graph表示使用的graph，2维，必须是Nx2或Nx3的，其中N表示边的数量，多出的第3列
+        表示边的权重；
+
+如果希望添加新的loss和score，则需要在utils.loss和utils.scores中添加相应的对象，
+    并将其添加到losses_dict或scores_dict中
+"""
+
 import os
-import sys
-from os.path import dirname
 
 import torch
 import torch_geometric.data as pyg_data
 import torch.optim as optim
 
-ROOT_DIR = dirname(dirname(dirname(os.path.abspath(__file__))))
-sys.path.append(ROOT_DIR)
-from utils.datasets import GenomicsData
-from utils.loss import losses_dict
-from utils.scores import scores_dict
+from utils import GenomicsData, losses_dict, scores_dict
+from processes import processes_dict
 from architecture import DeepDynGNN
 from train import train_val_test, save_generally, eval_one_epoch
-from opts import PanSurvConfig
-from processes import processes_dict
+from config import Config
 
 
 def main():
     # load config
-    config = PanSurvConfig()
+    config = Config()
     opts = config.initialize()
     config.save(os.path.join(opts.to, "config.json"))
     print(config)
@@ -36,23 +43,21 @@ def main():
             opts.processed_name, val_prop=opts.split[1],
             test_prop=opts.split[2], random_seed=opts.random_seed
         )
+        if opts.split[2] > 0.0:
+            datasets["test"] = GenomicsData(
+                opts.root_name, opts.source_files, pre_transform, "test",
+                opts.processed_name, val_prop=opts.split[1],
+                test_prop=opts.split[2], random_seed=opts.random_seed
+            )
+        if opts.split[1] > 0.0:
+            datasets["val"] = GenomicsData(
+                opts.root_name, opts.source_files, pre_transform, "val",
+                opts.processed_name, val_prop=opts.split[1],
+                test_prop=opts.split[2], random_seed=opts.random_seed
+            )
     else:
-        assert opts.split[1] == 0.0
-        assert opts.split[2] == 0.0
         datasets["eval"] = GenomicsData(
             opts.root_name, opts.source_files, pre_transform, "train",
-            opts.processed_name, val_prop=opts.split[1],
-            test_prop=opts.split[2], random_seed=opts.random_seed
-        )
-    if opts.split[2] > 0.0:
-        datasets["test"] = GenomicsData(
-            opts.root_name, opts.source_files, pre_transform, "test",
-            opts.processed_name, val_prop=opts.split[1],
-            test_prop=opts.split[2], random_seed=opts.random_seed
-        )
-    if opts.split[1] > 0.0:
-        datasets["val"] = GenomicsData(
-            opts.root_name, opts.source_files, pre_transform, "val",
             opts.processed_name, val_prop=opts.split[1],
             test_prop=opts.split[2], random_seed=opts.random_seed
         )
@@ -68,7 +73,10 @@ def main():
         model = DeepDynGNN(in_dim, opts)
 
     # criterion
-    criterion = losses_dict[opts.criterion.lower()]()
+    kwargs = {}
+    if opts.criterion.lower() == "svm_loss":
+        kwargs["r"] = opts.svm_loss_r
+    criterion = losses_dict[opts.criterion.lower()](**kwargs)
 
     # scores
     scores = [scores_dict[s]() for s in opts.scores]
@@ -76,6 +84,15 @@ def main():
     if opts.task == "train":
         if opts.optimizer.lower() == "adam":
             optimizer = optim.Adam(model.parameters(), opts.learning_rate)
+        elif opts.optimizer.lower() == "adamw":
+            optimizer = optim.AdamW(model.parameters(), opts.learning_rate)
+        elif opts.optimizer.lower() == "adammax":
+            optimizer = optim.Adamax(model.parameters(), opts.leanring_rate)
+        elif opts.optimizer.lower() == "rms":
+            optimizer = optim.RMSprop(model.parameters(), opts.learning_rate)
+        elif opts.optimizer.lower() == "momentum":
+            optimizer = optim.SGD(model.parameters(), opts.learning_rate,
+                                  momentum=0.9)
         else:
             raise NotImplementedError("%s is not implemented." %
                                       opts.optimizer)

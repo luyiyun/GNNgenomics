@@ -2,10 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import os
+import collections
 
 import torch
 import torch_geometric.data as pyg_data
 from sklearn.model_selection import train_test_split
+
+
+def to_list(x):
+    if not isinstance(x, collections.Iterable) or isinstance(x, str):
+        x = [x]
+    else:
+        x = list(x)
+    return x
 
 
 class GenomicsData(pyg_data.Dataset):
@@ -16,14 +25,17 @@ class GenomicsData(pyg_data.Dataset):
     ):
         """
         split stratify is the last columns of cli
+        source_files can be None or [None, None, None], now using files in
+            raw_dirs as raw_file_names
         """
         if (test_prop == 0.0) & (val_prop > 0.0):
             raise ValueError("Ensure the existence of test set firstly.")
         if not os.path.exists(root):
             os.mkdir(root)
-        self.source_files = source_files
+        self.source_files = to_list(source_files)
         self.process_data_name = process_data_name
         self.val_prop, self.test_prop = val_prop, test_prop
+        self.train_prop = 1 - val_prop - test_prop
         self.random_seed = random_seed
         super(GenomicsData, self).__init__(root, None, pre_transform)
         if phase == "train":
@@ -49,15 +61,17 @@ class GenomicsData(pyg_data.Dataset):
 
     @property
     def raw_file_names(self):
+        ''' if source_files is None, using the files in raw_dir '''
         return [os.path.split(f)[-1] for f in self.source_files]
 
     @property
     def processed_file_names(self):
-        data_names = ["%s_graph.pth", "%s_train.pth"]
+        data_names = ["%s_graph.pth",
+                      "%s_train_%f.pth" % ("%s", self.train_prop)]
         if self.test_prop > 0.0:
-            data_names.append("%s_test.pth")
+            data_names.append("%s_test_%f.pth" % ("%s", self.test_prop))
         if self.val_prop > 0.0:
-            data_names.append("%s_val.pth")
+            data_names.append("%s_val_%f.pth" % ("%s", self.val_prop))
         return [dn % self.process_data_name for dn in data_names]
 
     def download(self):
