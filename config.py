@@ -47,6 +47,10 @@ class Config:
             help="the graph data path, default string"
         )
         self.parser.add_argument(
+            "--onco_genes", default="onco_genes.csv",
+            help="the used once gene set, default onco_genes.csv"
+        )
+        self.parser.add_argument(
             "--processed_name", default="surv_tcgaPan_ppi_99",
             help="processed name, default surv_tcgaPan_ppi_99"
         )
@@ -133,7 +137,9 @@ class Config:
             os.mkdir(self.args.to)
         # source_files
         self.args.source_files = [
-            self.args.cli_data, self.args.seq_data, self.args.graph_data]
+            self.args.cli_data, self.args.seq_data, self.args.graph_data,
+            self.onco_genes
+        ]
         # if don't have raw files, must give source files;
         # if have raw files, source files is not necessary
         bool_raw_exist = os.path.exists(

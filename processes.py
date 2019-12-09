@@ -2,12 +2,17 @@
 # -*- coding: utf-8 -*-
 
 
+from functools import reduce
+
 import pandas as pd
 import numpy as np
 
+from utils import (read_files, remove_duplicated_columns_byVar,
+                   trans_graph_toNumber, samples_intersection)
+
 
 def surv_tcgaPan_ppi(source_files, std_filter=0.99):
-    tcgaPan_cli, tcgaPan_seq, ppi = source_files
+    tcgaPan_cli, tcgaPan_seq, ppi = source_files[:3]
     print("----- reading raw datasets")
     tcgaPan_cli = pd.read_csv(tcgaPan_cli, sep="\t", index_col=0)
     tcgaPan_seq = pd.read_csv(tcgaPan_seq, sep="\t", index_col=0).T
@@ -55,13 +60,41 @@ def surv_tcgaPan_ppi(source_files, std_filter=0.99):
     return tcgaPan_cli, tcgaPan_seq, ppi
 
 
-def primary_melanoma_tcga(source_files):
-    pass
+def melanoma_metastatic_oncogenes(source_files):
+    cli, seq, graph, onco_genes = source_files[:4]
+    print("----- reading raw datasets")
+    cli = read_files(cli, index_col=0)
+    seq = read_files(seq, index_col=0)
+    graph = read_files(graph)
+    onco_genes = read_files(onco_genes)
+
+    print("----- preprocessing raw datasets")
+    # get primary(0) vs metastatic(1)
+    cli = cli.loc[:, ["sample_type.samples"]]
+    cli = cli.loc[cli.iloc[:, 0].isin(["Primary Tumor", "Metastatic"]), :]
+    cli = cli.replace({"Primary Tumor": 0, "Metastatic": 1})
+
+    # seq
+    common_genes = list(set(seq.index).intersection(
+        set(onco_genes.iloc[:, 0])))
+    seq = seq.loc[common_genes, :].T
+    # remove duplicated, choose the largest var
+    seq = remove_duplicated_columns_byVar(seq).loc[:, common_genes]
+
+    # graph
+    graph_gene_mask = graph.iloc[:, -2:].isin(common_genes).all(axis=1)
+    graph = graph[graph_gene_mask]
+    # gene names --> number
+    graph = trans_graph_toNumber(common_genes, graph, [1, 2])
+
+    # same samples
+    cli, seq = samples_intersection(cli, seq)
+
+    # to ndarray, return
+    return cli.values, seq.values, graph.values
 
 
 processes_dict = {
     "surv_tcgaPan_ppi_99": lambda x: surv_tcgaPan_ppi(x, 0.99),
-    "melanoma_tcga": primary_melanoma_tcga,
+    "melanoma_metastatic_oncogenes": melanoma_metastatic_oncogenes,
 }
-
-

@@ -3,6 +3,7 @@
 
 import torch
 from sksurv.metrics import concordance_index_censored as c_index
+from sklearn.metrics import roc_auc_score
 
 
 class Loss:
@@ -26,9 +27,10 @@ class Loss:
         return (self.loss_all / self.count).detach().cpu().item()
 
 
-class C_index:
-    def __init__(self):
-        self.init()
+class CPUMetric:
+    def __init__(self, cpu_func):
+        self.cpu_func = cpu_func
+        self.__init__()
 
     def init(self):
         self.preds, self.targets = [], []
@@ -40,16 +42,32 @@ class C_index:
     def value(self):
         preds = torch.cat(self.preds, dim=0).detach().cpu().numpy()
         targets = torch.cat(self.targets, dim=0).detach().cpu().numpy()
-        return c_index(targets[:, 1].astype("bool"), targets[:, 0],
-                       -preds.squeeze())[0]  # "-" indicated pred is surv prop
-                                             #   not risk.
+        return self.cpu_func(targets, preds)
+
     def __call__(self, preds, targets):
         preds = preds.detach().cpu().numpy()
         targets = targets.detach().cpu().numpy()
-        return c_index(targets[:, 1].astype("bool"), targets[:, 0],
-                       -preds.squeeze())[0]
+        return self.cpu_func(targets, preds)
+
+
+class Cindex(CPUMetric):
+    def __init__(self):
+        def c_index_func(targets, preds):
+            return c_index(targets[:, 1].astype("bool"),
+                           targets[:, 0],
+                           -preds.squeeze())[0]
+        super(Cindex, self).__init__(c_index_func)
+
+
+class AUC(CPUMetric):
+    def __init__(self):
+        def auc_func(targets, preds):
+            targets, preds = targets.squeeze(), preds.squeeze()
+            return roc_auc_score(targets, preds)
+        super(AUC, self).__init__(auc_func)
 
 
 scores_dict = {
-    "c_index": C_index
+    "c_index": Cindex,
+    "auc": AUC,
 }

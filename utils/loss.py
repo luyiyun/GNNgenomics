@@ -71,5 +71,6 @@ class SVMLoss(nn.Module):
 
 losses_dict = {
     "cox_loss": CoxLoss,
-    "svm_loss": SVMLoss
+    "svm_loss": SVMLoss,
+    "bce_loss": nn.BCEWithLogitsLoss,
 }

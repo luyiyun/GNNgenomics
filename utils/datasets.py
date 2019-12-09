@@ -3,7 +3,9 @@
 
 import os
 import collections
+from functools import reduce
 
+import pandas as pd
 import torch
 import torch_geometric.data as pyg_data
 from sklearn.model_selection import train_test_split
@@ -114,3 +116,36 @@ class GenomicsData(pyg_data.Dataset):
             torch.save([torch.tensor(seq).float(),
                         torch.tensor(cli).float()],
                        self.processed_paths[1])
+
+
+def read_files(f, **kwargs):
+    sep = "\t"
+    if f[-3:] == "csv":
+        sep = ","
+    return pd.read_csv(f, sep=sep, **kwargs)
+
+
+def remove_duplicated_columns_byVar(df):
+    dup_mask = df.columns.duplicated(False)
+    dup_df, nodup_df = df.loc[:, dup_mask], df.loc[:, ~dup_mask]
+    dup_vars = dup_df.var().reset_index()
+    dup_vars.columns = ["gene", "var"]
+    dup_vars = dup_vars.sort_values("var", ascending=False)
+    dup_vars = dup_vars.drop_duplicates("gene")
+    dup_df = dup_df.iloc[:, dup_vars.index.values]
+    return pd.concat([dup_df, nodup_df], axis=1)
+
+
+def trans_graph_toNumber(str_list, graph_df, index_cols=[1, 2]):
+    genes_map = pd.Series(range(len(str_list)), index=str_list)
+    num_graph = graph_df.iloc[:, index_cols].replace(genes_map)
+    other_graph = graph_df.drop(columns=graph_df.columns[index_cols])
+    return pd.concat([num_graph, other_graph], axis=1)
+
+
+def samples_intersection(*dfs):
+    samples = [set(df.index) for df in dfs]
+    common_samples = reduce(lambda x, y: x.intersection(y), samples)
+    return [df.loc[common_samples, :] for df in dfs]
+
+
