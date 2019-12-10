@@ -30,7 +30,6 @@ class Loss:
 class CPUMetric:
     def __init__(self, cpu_func):
         self.cpu_func = cpu_func
-        self.__init__()
 
     def init(self):
         self.preds, self.targets = [], []

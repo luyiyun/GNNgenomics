@@ -28,17 +28,16 @@ def train_one_epoch(
 ):
     """ Loss should be in scores if loss is necessary. """
     loss_sum = Loss()
-    for s in scores:  # init score
+    for s in scores.values():  # init score
         s.init()
     for batch in tqdm(train_dataloader, "train: "):
         batch = batch.to(torch.device(device))
         _, batch_loss, batch_out = train_one_batch(
             model, criterion, optimizer, batch)
         loss_sum.add(batch_loss, batch.num_graphs)
-        for score in scores:
+        for score in scores.values():
             score.add(batch_out, batch.y)
-    return (model, loss_sum.value(),
-            {s.__class__.__name__.lower(): s.value() for s in scores})
+    return (model, loss_sum.value(), {k: v.value() for k, v in scores.items()})
 
 
 def eval_one_epoch(
@@ -47,7 +46,7 @@ def eval_one_epoch(
     epoch_pred = []
     epoch_target = []
     loss_sum = Loss()
-    for s in scores:
+    for s in scores.values():
         s.init()
     for batch in tqdm(eval_dataloader, "eval: "):
         batch = batch.to(torch.device(device))
@@ -59,9 +58,8 @@ def eval_one_epoch(
 
     epoch_pred = torch.cat(epoch_pred, dim=0)
     epoch_target = torch.cat(epoch_target, dim=0)
-    values_scores = {s.__class__.__name__.lower():
-                     s(epoch_pred, epoch_target)
-                     for s in scores}
+    values_scores = {k: v(epoch_pred, epoch_target)
+                     for k, v in scores.items()}
     epoch_loss = loss_sum.value()
     return epoch_loss, values_scores, epoch_pred, epoch_target
 
@@ -71,9 +69,8 @@ def train_val_test(model, criterion, optimizer, dataloaders, scores, opts):
     history = {}
     for k in dataloaders.keys():
         history[k] = {"loss": []}
-        for s in scores:
-            s_name = s.__class__.__name__.lower()
-            history[k][s_name] = []
+        for s in scores.keys():
+            history[k][s] = []
     # the position
     model = model.to(torch.device(opts.device))
     # visdom

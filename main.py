@@ -25,6 +25,7 @@ from processes import processes_dict
 from architecture import DeepDynGNN
 from train import train_val_test, save_generally, eval_one_epoch
 from config import Config
+from tradition import traditional_surv_analysis
 
 
 def main():
@@ -37,7 +38,7 @@ def main():
     # prepare dataset
     pre_transform = processes_dict[opts.processed_name]
     datasets = {}
-    if opts.task == "train":
+    if opts.task in ["train", "tradition"]:
         datasets["train"] = GenomicsData(
             opts.root_name, opts.source_files, pre_transform, "train",
             opts.processed_name, val_prop=opts.split[1],
@@ -62,15 +63,28 @@ def main():
             test_prop=opts.split[2], random_seed=opts.random_seed
         )
     in_dim = datasets["train"].features_dim
+    num_nodes = datasets["train"].num_nodes
     dataloaders = {k: pyg_data.DataLoader(dat, batch_size=opts.batch_size,
                                           shuffle=(k == "train"))
                    for k, dat in datasets.items()}
+
+    # tranditional evaulation:
+    if opts.task == "tradition":
+        train_scores, test_scores = traditional_surv_analysis(datasets, opts)
+        save_generally([train_scores, test_scores],
+                       os.path.join(opts.to, "tradition.json"))
+        print("")
+        print("train:")
+        print(train_scores)
+        print("test:")
+        print(test_scores)
+        return
 
     # networks
     if opts.load_model is not None:
         model = torch.load(opts.load_model)
     else:
-        model = DeepDynGNN(in_dim, opts)
+        model = DeepDynGNN(in_dim, num_nodes, opts)
 
     # criterion
     kwargs = {}
@@ -79,7 +93,7 @@ def main():
     criterion = losses_dict[opts.criterion.lower()](**kwargs)
 
     # scores
-    scores = [scores_dict[s]() for s in opts.scores]
+    scores = {s: scores_dict[s]() for s in opts.scores}
 
     if opts.task == "train":
         if opts.optimizer.lower() == "adam":
@@ -118,9 +132,6 @@ def main():
         save_generally(eval_scores, os.path.join(opts.to, "eval_res.json"))
         save_generally(pred, os.path.join(opts.to, "pred.txt"))
         save_generally(target, os.path.join(opts.to, "target.txt"))
-
-    else:
-        raise NotImplementedError("task must be one of train, pred and eval.")
 
 
 if __name__ == '__main__':

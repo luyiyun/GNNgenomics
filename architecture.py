@@ -9,7 +9,7 @@ from nn_lib import StaticGNN, ResDynamicBlock, MLP
 
 
 class DeepDynGNN(nn.Module):
-    def __init__(self, in_dim, opts):
+    def __init__(self, in_dim, nodes_num, opts):
         super(DeepDynGNN, self).__init__()
         # read some args from opts
         block_hiddens = opts.block_hiddens
@@ -20,12 +20,17 @@ class DeepDynGNN(nn.Module):
         bias = opts.bias
         conv = opts.conv.lower()
         heads = opts.heads
+        cheb_k = opts.cheb_k
         n_blocks = opts.n_blocks
         neighbors = opts.neighbors
+        self.global_pooling = opts.global_pooling
+        self.nodes_num = nodes_num
         # for special conv, another args will be needed
         kwargs = {}
         if conv == "gat":
             kwargs["head"] = heads
+        elif conv == "cheb":
+            kwargs["K"] = cheb_k
         # first layer, static GNN
         self.head = StaticGNN(
             in_dim, block_hiddens[0], conv=conv, bias=bias, act=act,
@@ -41,6 +46,8 @@ class DeepDynGNN(nn.Module):
             )
         # prediction
         fusion_dims = block_hiddens[0] * (n_blocks + 1)
+        if self.global_pooling == "view":
+            fusion_dims *= self.nodes_num
         units = [fusion_dims] + opts.prediction_hidden_units + [opts.out_dim]
         MLPs = []
         for i in range(len(units) - 1):
@@ -57,7 +64,12 @@ class DeepDynGNN(nn.Module):
             feats.append(block(feats[-1], edge_index, batch, edge_weight))
         feats = torch.cat(feats, 1)
         feats, _ = to_dense_batch(feats, batch)  # B x N x F
-        feats = torch.mean(feats, 1)  # B X F
+        if self.global_pooling == "max":
+            feats, _ = torch.max(feats, 1)  # B X F
+        elif self.global_pooling == "mean":
+            feats = torch.mean(feats, 1)  # B x F
+        elif self.global_pooling == "view":
+            feats = feats.view(feats.size(0), -1)  # B x (NF)
         out = self.prediction(feats)  # B x 1
         return out
 

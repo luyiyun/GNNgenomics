@@ -3,3 +3,4 @@
 **/RESULTS/
 .*
 !.gitignore
+*.sh

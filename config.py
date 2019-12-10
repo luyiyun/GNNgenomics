@@ -16,6 +16,7 @@ class Config:
 
         # base
         self.parser.add_argument("--task", default="train",
+                                 choices=["train", "test", "tradition"],
                                  help="train(default) or test or pred")
         self.parser.add_argument("--device", default="cuda:0",
                                  help="cuda:0(default) or cpu")
@@ -54,17 +55,20 @@ class Config:
             "--processed_name", default="surv_tcgaPan_ppi_99",
             help="processed name, default surv_tcgaPan_ppi_99"
         )
+        self.parser.add_argument("--n_features", default=192, type=int,
+                                 help="暂时的会在global_pooling=view时用到")
 
         # network architecture
         self.parser.add_argument("-bh", "--block_hiddens", default=[10],
-                                 nargs="+",
+                                 nargs="+", type=int,
                                  help="res block channels, default [10]")
         self.parser.add_argument("--act", default="relu")
         self.parser.add_argument("--norm", default="batch")
         self.parser.add_argument("--bias", default=True, type=bool)
         self.parser.add_argument("--conv", default="gcn")
         self.parser.add_argument("--heads", default=1, type=int)
-        self.parser.add_argument("--n_blocks", default=10, type=int)
+        self.parser.add_argument("--cheb_k", default=5, type=int)
+        self.parser.add_argument("--n_blocks", default=5, type=int)
         self.parser.add_argument("--neighbors", default=10, type=int)
         self.parser.add_argument("--block", default="res",
                                  help="the type of blocks, default res")
@@ -75,6 +79,9 @@ class Config:
         self.parser.add_argument("--prediction_hidden_units", nargs="+",
                                  default=[1024, 512, 256], type=int,
                                  help="the hidden units in prediction")
+        self.parser.add_argument("--global_pooling", default="max",
+                                 choices=["max", "mean", "view"],
+                                 help="type of global pooling, default max")
 
         # training args
         self.parser.add_argument("-e", "--epoch", type=int, default=100,
@@ -138,7 +145,7 @@ class Config:
         # source_files
         self.args.source_files = [
             self.args.cli_data, self.args.seq_data, self.args.graph_data,
-            self.onco_genes
+            self.args.onco_genes
         ]
         # if don't have raw files, must give source files;
         # if have raw files, source files is not necessary

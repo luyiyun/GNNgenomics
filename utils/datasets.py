@@ -117,6 +117,10 @@ class GenomicsData(pyg_data.Dataset):
                         torch.tensor(cli).float()],
                        self.processed_paths[1])
 
+    @property
+    def num_nodes(self):
+        return self.xs.size(1)
+
 
 def read_files(f, **kwargs):
     sep = "\t"
